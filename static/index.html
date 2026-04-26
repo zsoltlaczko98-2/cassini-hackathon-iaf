@@ -565,32 +565,12 @@
             <div id="historical-summary"><div class="loading"><span class="spinner"></span>Loading...</div></div>
         </div>
         <div class="card">
-            <h2><span class="icon">🔔</span> Alerts</h2>
-            <div id="alerts"><div class="loading"><span class="spinner"></span>Loading...</div></div>
-        </div>
-    </div>
-
-    <!-- Row 2: Forecast table -->
-    <div class="grid grid-wide">
-        <div class="card">
-            <h2><span class="icon">📊</span> 7-Day Irrigation Forecast</h2>
-            <div id="forecast-table" style="overflow-x:auto;"><div class="loading"><span class="spinner"></span>Loading...</div></div>
-        </div>
-    </div>
-
-    <!-- Row 3: Chart + Prediction -->
-    <div class="grid">
-        <div class="card">
-            <h2><span class="icon">📉</span> Forecast Chart</h2>
-            <div id="chart-container"><div class="loading"><span class="spinner"></span>Loading...</div></div>
-        </div>
-        <div class="card">
             <h2><span class="icon">🤖</span> AI Yield Prediction</h2>
             <div id="prediction"><div class="loading"><span class="spinner"></span>Loading...</div></div>
         </div>
     </div>
 
-    <!-- Row 4: Yield Comparison Maps -->
+    <!-- Row 2: Yield Comparison Maps -->
     <div class="grid">
         <div class="card">
             <h2><span class="icon">🗺️</span> Yield Map — Without Irrigation</h2>
@@ -601,6 +581,22 @@
             <h2><span class="icon">💧</span> Yield Map — With Irrigation</h2>
             <div id="yield-map-irrig" style="height:320px; border-radius:10px; overflow:hidden; background:#e8e0d8;"></div>
             <div id="yield-map-irrig-label" style="text-align:center; margin-top:0.5rem; font-size:1.1rem; font-weight:600;"></div>
+        </div>
+    </div>
+
+    <!-- Row 3: Alerts -->
+    <div class="grid grid-wide">
+        <div class="card">
+            <h2><span class="icon">🔔</span> Alerts</h2>
+            <div id="alerts"><div class="loading"><span class="spinner"></span>Loading...</div></div>
+        </div>
+    </div>
+
+    <!-- Row 4: Forecast table -->
+    <div class="grid grid-wide">
+        <div class="card">
+            <h2><span class="icon">📊</span> 7-Day Irrigation Forecast</h2>
+            <div id="forecast-table" style="overflow-x:auto;"><div class="loading"><span class="spinner"></span>Loading...</div></div>
         </div>
     </div>
 </main>
@@ -915,7 +911,7 @@ async function loadEverything() {
     status.textContent = '⏳ Loading...';
 
     // Show loading states
-    ['soil-profile', 'historical-summary', 'alerts', 'forecast-table', 'chart-container', 'prediction']
+    ['soil-profile', 'historical-summary', 'alerts', 'forecast-table', 'prediction']
         .forEach(id => document.getElementById(id).innerHTML = '<div class="loading"><span class="spinner"></span>Loading...</div>');
 
     const dateVal = document.getElementById('sim-date').value;
@@ -944,7 +940,6 @@ async function loadEverything() {
         if (forecastRes.status === 'fulfilled') {
             renderHistorical(forecastRes.value);
             renderForecast(forecastRes.value);
-            renderChart();
         } else {
             document.getElementById('historical-summary').innerHTML = isFuture
                 ? '<div class="empty">🔮 Historical summary uses analog year data for future projections</div>'
@@ -952,9 +947,6 @@ async function loadEverything() {
             document.getElementById('forecast-table').innerHTML = isFuture
                 ? '<div class="empty">🔮 Day-by-day forecast not available for future dates — see ML prediction below</div>'
                 : '<div class="empty">⚠️ Forecast unavailable</div>';
-            document.getElementById('chart-container').innerHTML = isFuture
-                ? '<div class="empty">🔮 Chart not available for future dates</div>'
-                : '<div class="empty">⚠️ Chart unavailable</div>';
         }
 
         if (alertRes.status === 'fulfilled') {
