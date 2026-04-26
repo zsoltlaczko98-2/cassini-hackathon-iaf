@@ -247,6 +247,7 @@
         .status-good { color: var(--green); }
         .status-warn { color: var(--yellow); }
         .status-bad { color: var(--red); }
+        .yield-ok { color: #a3e635; } /* lime-green: decent but not great yield */
 
         /* ── Soil profile bars ─────────────────────────────────── */
         .soil-bar-wrap { margin-bottom: 0.75rem; }
@@ -587,6 +588,20 @@
             <div id="prediction"><div class="loading"><span class="spinner"></span>Loading...</div></div>
         </div>
     </div>
+
+    <!-- Row 4: Yield Comparison Maps -->
+    <div class="grid">
+        <div class="card">
+            <h2><span class="icon">🗺️</span> Yield Map — Without Irrigation</h2>
+            <div id="yield-map-no-irrig" style="height:320px; border-radius:10px; overflow:hidden; background:#e8e0d8;"></div>
+            <div id="yield-map-no-irrig-label" style="text-align:center; margin-top:0.5rem; font-size:1.1rem; font-weight:600;"></div>
+        </div>
+        <div class="card">
+            <h2><span class="icon">💧</span> Yield Map — With Irrigation</h2>
+            <div id="yield-map-irrig" style="height:320px; border-radius:10px; overflow:hidden; background:#e8e0d8;"></div>
+            <div id="yield-map-irrig-label" style="text-align:center; margin-top:0.5rem; font-size:1.1rem; font-weight:600;"></div>
+        </div>
+    </div>
 </main>
 
 <!-- ── Tab 2: Tisza River Monitor ──────────────────────────────────── -->
@@ -828,8 +843,12 @@ function renderChart() {
 function renderPrediction(data) {
     const el = document.getElementById('prediction');
     const p = data.prediction;
-    const statusClass = p.predicted_yield >= p.hist_mean_yield ? 'status-good' :
-        p.predicted_yield >= p.hist_mean_yield - p.hist_std_yield ? 'status-warn' : 'status-bad';
+    const statusClass = p.predicted_yield >= 6 ? 'status-good' :
+        p.predicted_yield >= 5 ? 'yield-ok' :
+        p.predicted_yield >= 4 ? 'status-warn' : 'status-bad';
+
+    const irrigStatusClass = p.irrigated_yield >= 6 ? 'status-good' :
+        p.irrigated_yield >= 5 ? 'yield-ok' : 'status-warn';
 
     el.innerHTML = `
         <div class="prediction-row">
@@ -838,7 +857,7 @@ function renderPrediction(data) {
         </div>
         <div class="prediction-row">
             <span class="prediction-label">Predicted Yield (with irrigation)</span>
-            <span class="prediction-value status-good">${p.irrigated_yield.toFixed(2)} t/ha</span>
+            <span class="prediction-value ${irrigStatusClass}">${p.irrigated_yield.toFixed(2)} t/ha</span>
         </div>
         <div class="prediction-row">
             <span class="prediction-label">Yield Improvement</span>
@@ -881,6 +900,8 @@ function renderPrediction(data) {
                 </div>
             </div>` : ''}
         </div>`;
+
+    if (p.predicted_yield) updateYieldMaps(p);
 }
 
 // ── Load functions ──────────────────────────────
@@ -978,6 +999,50 @@ function switchTab(tab) {
     document.getElementById('tab-field').style.display = tab === 'field' ? '' : 'none';
     document.getElementById('tab-river').style.display = tab === 'river' ? '' : 'none';
     if (tab === 'river') loadRiverData();
+}
+
+// ── Yield Comparison Maps (Field Monitor) ──────────────────────────────────
+var _yieldMapNoIrrig = null;
+var _yieldMapIrrig = null;
+var _yieldOverlayNoIrrig = null;
+var _yieldOverlayIrrig = null;
+
+function yieldToMapColor(yieldVal) {
+    if (yieldVal >= 6) return '#22c55e';
+    if (yieldVal >= 5) return '#a3e635';
+    if (yieldVal >= 4) return '#facc15';
+    if (yieldVal >= 3) return '#f97316';
+    return '#ef4444';
+}
+
+function initYieldMaps(lat, lon) {
+    if (!_yieldMapNoIrrig) {
+        _yieldMapNoIrrig = L.map('yield-map-no-irrig', { zoomControl: false, attributionControl: false }).setView([lat, lon], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(_yieldMapNoIrrig);
+    }
+    if (!_yieldMapIrrig) {
+        _yieldMapIrrig = L.map('yield-map-irrig', { zoomControl: false, attributionControl: false }).setView([lat, lon], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(_yieldMapIrrig);
+    }
+}
+
+function updateYieldMaps(pred) {
+    var lat = 46.305, lon = 20.050;
+    initYieldMaps(lat, lon);
+    var yNo = pred.predicted_yield, yIrr = pred.irrigated_yield;
+    var cNo = yieldToMapColor(yNo), cIrr = yieldToMapColor(yIrr);
+    if (_yieldOverlayNoIrrig) _yieldMapNoIrrig.removeLayer(_yieldOverlayNoIrrig);
+    if (_yieldOverlayIrrig) _yieldMapIrrig.removeLayer(_yieldOverlayIrrig);
+    _yieldOverlayNoIrrig = L.circle([lat, lon], { radius: 5000, color: cNo, fillColor: cNo, fillOpacity: 0.35, weight: 2 }).addTo(_yieldMapNoIrrig);
+    _yieldOverlayNoIrrig.bindPopup('<b>Without Irrigation</b><br>' + yNo.toFixed(2) + ' t/ha');
+    _yieldOverlayIrrig = L.circle([lat, lon], { radius: 5000, color: cIrr, fillColor: cIrr, fillOpacity: 0.35, weight: 2 }).addTo(_yieldMapIrrig);
+    _yieldOverlayIrrig.bindPopup('<b>With Irrigation</b><br>' + yIrr.toFixed(2) + ' t/ha');
+    [_yieldMapNoIrrig, _yieldMapIrrig].forEach(function(m) { m.eachLayer(function(l) { if (l instanceof L.Marker) m.removeLayer(l); }); });
+    L.marker([lat, lon]).addTo(_yieldMapNoIrrig).bindTooltip('Szeged Demo Field', { permanent: true, direction: 'top' });
+    L.marker([lat, lon]).addTo(_yieldMapIrrig).bindTooltip('Szeged Demo Field', { permanent: true, direction: 'top' });
+    document.getElementById('yield-map-no-irrig-label').innerHTML = '<span style="color:' + cNo + '">' + yNo.toFixed(2) + ' t/ha — without irrigation</span>';
+    document.getElementById('yield-map-irrig-label').innerHTML = '<span style="color:' + cIrr + '">' + yIrr.toFixed(2) + ' t/ha — with irrigation</span>';
+    setTimeout(function() { _yieldMapNoIrrig.invalidateSize(); _yieldMapIrrig.invalidateSize(); }, 200);
 }
 
 // ── River transect bands + Leaflet map ─────────────
