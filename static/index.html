@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Impetus Aquae Fontis — Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --bg: #e8eef5;
+            --card: rgba(255,255,255,0.82);
+            --card-hover: rgba(255,255,255,0.95);
+            --border: rgba(0,0,0,0.06);
+            --text: #1a1a2e;
+            --text-secondary: #4a5568;
+            --muted: #718096;
+            --accent: #0078d4;
+            --accent-light: #e1f0ff;
+            --green: #10b981;
+            --green-bg: #ecfdf5;
+            --yellow: #f59e0b;
+            --yellow-bg: #fffbeb;
+            --red: #ef4444;
+            --red-bg: #fef2f2;
+            --cyan: #06b6d4;
+            --cyan-bg: #ecfeff;
+            --hero-start: #1b6abf;
+            --hero-end: #4facfe;
+            --glass: rgba(255,255,255,0.55);
+            --glass-border: rgba(255,255,255,0.3);
+            --shadow: 0 2px 16px rgba(0,0,0,0.06);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Hero header (MSN Weather style) ───────────────────── */
+        .hero {
+            background: linear-gradient(135deg, var(--hero-start) 0%, var(--hero-end) 50%, #60b3f7 100%);
+            color: #fff;
+            padding: 2rem 2rem 3rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .hero-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+        .hero-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .hero-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .hero-brand .logo {
+            width: 42px;
+            height: 42px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            backdrop-filter: blur(10px);
+        }
+        .hero-brand h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+        }
+        .hero-brand .subtitle {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            font-weight: 400;
+        }
+        .hero-location {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        /* Controls bar — glass morphism */
+        .controls-bar {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1rem 1.2rem;
+            display: flex;
+            align-items: flex-end;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .ctrl-group { display: flex; flex-direction: column; gap: 0.25rem; }
+        .ctrl-group label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            opacity: 0.7;
+            font-weight: 600;
+        }
+        .ctrl-group input, .ctrl-group select {
+            background: rgba(255,255,255,0.6);
+            border: 1px solid rgba(255,255,255,0.4);
+            color: #1a1a2e;
+            padding: 0.5rem 0.75rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .ctrl-group input:focus, .ctrl-group select:focus {
+            outline: none;
+            background: rgba(255,255,255,0.9);
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0,120,212,0.15);
+        }
+
+        .btn {
+            background: #fff;
+            color: var(--accent);
+            border: none;
+            padding: 0.55rem 1.4rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            font-family: inherit;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled { opacity: 0.5; cursor: wait; transform: none; }
+        .btn-ml {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+        }
+
+        /* ── Main content ──────────────────────────────────────── */
+        main {
+            max-width: 1400px;
+            margin: -1.5rem auto 0;
+            padding: 0 1.5rem 2rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .grid-wide { grid-template-columns: 1fr; }
+
+        /* ── Cards — frosted glass ─────────────────────────────── */
+        .card {
+            background: var(--card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.4rem;
+            position: relative;
+            box-shadow: var(--shadow);
+            transition: box-shadow 0.25s, transform 0.25s;
+        }
+        .card:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
+        }
+        .card h2 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .card h2 .icon {
+            font-size: 1.1rem;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: var(--accent-light);
+        }
+
+        /* ── Stat boxes ────────────────────────────────────────── */
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+        .stat {
+            background: var(--bg);
+            border-radius: 12px;
+            padding: 0.9rem;
+            transition: background 0.2s;
+        }
+        .stat:hover { background: #dfe6ef; }
+        .stat .label {
+            font-size: 0.65rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            font-weight: 600;
+        }
+        .stat .value { font-size: 1.4rem; font-weight: 700; margin-top: 0.25rem; color: var(--text); }
+        .stat .sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.15rem; }
+
+        .status-good { color: var(--green); }
+        .status-warn { color: var(--yellow); }
+        .status-bad { color: var(--red); }
+
+        /* ── Soil profile bars ─────────────────────────────────── */
+        .soil-bar-wrap { margin-bottom: 0.75rem; }
+        .soil-bar-label {
+            font-size: 0.8rem;
+            margin-bottom: 0.35rem;
+            display: flex;
+            justify-content: space-between;
+            font-weight: 500;
+        }
+        .soil-bar {
+            height: 10px;
+            background: var(--bg);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .soil-bar-fill {
+            height: 100%;
+            border-radius: 5px;
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ── Alerts (MSN-style notification cards) ─────────────── */
+        .alert {
+            border-radius: 12px;
+            padding: 1rem 1.2rem;
+            margin-bottom: 0.6rem;
+            display: flex;
+            gap: 0.8rem;
+            align-items: flex-start;
+            transition: transform 0.15s;
+        }
+        .alert:hover { transform: translateX(2px); }
+        .alert-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .alert-critical { background: var(--red-bg); }
+        .alert-critical .alert-icon { background: var(--red); color: #fff; }
+        .alert-warning { background: var(--yellow-bg); }
+        .alert-warning .alert-icon { background: var(--yellow); color: #fff; }
+        .alert-info { background: var(--cyan-bg); }
+        .alert-info .alert-icon { background: var(--cyan); color: #fff; }
+        .alert-body { flex: 1; }
+        .alert h3 { font-size: 0.85rem; margin-bottom: 0.2rem; color: var(--text); }
+        .alert p { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; }
+        .alert .channel { font-size: 0.7rem; color: var(--muted); margin-top: 0.3rem; }
+
+        /* ── Forecast table ────────────────────────────────────── */
+        .forecast-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.82rem; }
+        .forecast-table th {
+            text-align: left;
+            padding: 0.6rem 0.7rem;
+            font-size: 0.68rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            font-weight: 600;
+            border-bottom: 2px solid var(--bg);
+            position: sticky;
+            top: 0;
+            background: var(--card);
+        }
+        .forecast-table td {
+            padding: 0.65rem 0.7rem;
+            border-bottom: 1px solid var(--bg);
+            vertical-align: middle;
+        }
+        .forecast-table tbody tr {
+            transition: background 0.15s;
+        }
+        .forecast-table tbody tr:hover { background: var(--accent-light); }
+        .forecast-table .today {
+            background: var(--accent-light);
+            font-weight: 600;
+        }
+        .action-cell { max-width: 220px; font-size: 0.75rem; color: var(--text-secondary); }
+
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.68rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .badge-none { background: var(--green-bg); color: var(--green); }
+        .badge-moderate { background: var(--yellow-bg); color: #b45309; }
+        .badge-severe { background: #fff7ed; color: #c2410c; }
+        .badge-critical { background: var(--red-bg); color: var(--red); }
+        .badge-low { background: var(--green-bg); color: var(--green); }
+        .badge-high { background: var(--red-bg); color: var(--red); }
+
+        /* ── Prediction ────────────────────────────────────────── */
+        .prediction-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.7rem 0;
+            border-bottom: 1px solid var(--bg);
+        }
+        .prediction-row:last-child { border: none; }
+        .prediction-label { font-size: 0.85rem; color: var(--text-secondary); }
+        .prediction-value { font-size: 1.15rem; font-weight: 700; }
+
+        /* ── Chart ─────────────────────────────────────────────── */
+        .chart-img { width: 100%; border-radius: 12px; margin-top: 0.5rem; }
+
+        /* ── Loading & empty ───────────────────────────────────── */
+        .loading { text-align: center; padding: 2.5rem; color: var(--muted); }
+        .spinner {
+            display: inline-block;
+            width: 22px; height: 22px;
+            border: 2.5px solid var(--bg);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .empty { color: var(--muted); font-size: 0.85rem; padding: 1.5rem; text-align: center; }
+
+        /* ── Footer ────────────────────────────────────────────── */
+        footer {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--muted);
+            font-size: 0.75rem;
+            margin-top: 1rem;
+        }
+        footer a { color: var(--accent); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        /* ── Responsive ────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .hero { padding: 1.2rem 1rem 2.5rem; }
+            main { padding: 0 1rem 1.5rem; }
+            .grid { grid-template-columns: 1fr; }
+            .controls-bar { flex-direction: column; align-items: stretch; }
+            .stat-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ── Fade-in animation ─────────────────────────────────── */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .card { animation: fadeUp 0.4s ease-out both; }
+        .card:nth-child(1) { animation-delay: 0.05s; }
+        .card:nth-child(2) { animation-delay: 0.1s; }
+        .card:nth-child(3) { animation-delay: 0.15s; }
+
+        /* ── Tab bar ──────────────────────────────────────────── */
+        .tab-bar {
+            display: flex;
+            gap: 0;
+            max-width: 1200px;
+            margin: -1.5rem auto 0;
+            padding: 0 2rem;
+            position: relative;
+            z-index: 5;
+        }
+        .tab {
+            padding: 0.7rem 1.5rem;
+            border: none;
+            background: rgba(255,255,255,0.45);
+            backdrop-filter: blur(12px);
+            color: var(--text-secondary);
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 12px 12px 0 0;
+            transition: all 0.2s;
+            border: 1px solid var(--border);
+            border-bottom: none;
+        }
+        .tab:hover { background: rgba(255,255,255,0.7); }
+        .tab.active {
+            background: var(--bg);
+            color: var(--accent);
+            border-bottom: 2px solid var(--bg);
+            margin-bottom: -1px;
+        }
+
+        /* ── River segment cards ──────────────────────────────── */
+        .segment-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 0.8rem;
+        }
+        .segment-card {
+            background: linear-gradient(135deg, rgba(6,182,212,0.06), rgba(255,255,255,0.6));
+            border: 1px solid rgba(6,182,212,0.15);
+            border-radius: 12px;
+            padding: 1rem;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .segment-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(6,182,212,0.12);
+        }
+        .segment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.6rem;
+        }
+        .segment-name { font-weight: 700; font-size: 0.88rem; color: var(--text); }
+        .segment-km { font-size: 0.72rem; color: var(--muted); background: rgba(6,182,212,0.1); padding: 0.15rem 0.5rem; border-radius: 8px; }
+        .moisture-bar-container {
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0.3rem 0;
+        }
+        .moisture-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        .moisture-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--muted);
+        }
+        .moisture-value { font-size: 1.1rem; font-weight: 700; }
+        .river-svg-chart {
+            width: 100%;
+            height: 200px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Hero header ─────────────────────────────────────────────────── -->
+<div class="hero">
+    <div class="hero-inner">
+        <div class="hero-top">
+            <div class="hero-brand">
+                <div class="logo">🌾</div>
+                <div>
+                    <h1>Impetus Aquae Fontis</h1>
+                    <div class="subtitle">Agricultural Water Intelligence Platform</div>
+                </div>
+            </div>
+            <div class="hero-location">
+                📍 Szeged farmland, Hungary &nbsp;•&nbsp; Copernicus ERA5 · Sentinel-1 · Sentinel-2 · Galileo
+            </div>
+        </div>
+
+        <div class="controls-bar">
+            <div class="ctrl-group">
+                <label>Date</label>
+                <input type="date" id="sim-date" value="" min="2015-06-01">
+            </div>
+            <div class="ctrl-group">
+                <label>Crop</label>
+                <select id="crop">
+                    <option value="maize">🌽 Maize</option>
+                    <option value="wheat">🌾 Wheat</option>
+                </select>
+            </div>
+            <div class="ctrl-group">
+                <label>Area (ha)</label>
+                <input type="number" id="area" value="50" min="0.1" max="1000" step="0.1" style="width:80px">
+            </div>
+            <div class="ctrl-group">
+                <label>Reservoir (m³)</label>
+                <input type="number" id="reservoir" value="15000" min="0.2" max="100000" step="100" style="width:100px">
+            </div>
+            <div class="ctrl-group">
+                <label>Scenario</label>
+                <select id="scenario">
+                    <option value="auto">🔮 Auto-detect</option>
+                    <option value="hot_dry">🔥 Hot &amp; Dry</option>
+                    <option value="normal">🌤️ Normal</option>
+                    <option value="wet_cool">🌧️ Wet &amp; Cool</option>
+                </select>
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:flex-end;">
+                <div id="status-indicator" style="font-size:0.78rem;opacity:0.8;">Ready</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Tab navigation ──────────────────────────────────────────────── -->
+<div class="tab-bar">
+    <button class="tab active" data-tab="field" onclick="switchTab('field')">🌾 Field Monitor</button>
+    <button class="tab" data-tab="river" onclick="switchTab('river')">🌊 Tisza River Monitor</button>
+</div>
+
+<!-- ── Tab 1: Field Monitor (existing content) ─────────────────────── -->
+<main id="tab-field">
+    <!-- Row 1: Key stats -->
+    <div class="grid" id="stats-row">
+        <div class="card">
+            <h2><span class="icon">💧</span> Soil Moisture (ERA5 + Sentinel-1)</h2>
+            <div id="soil-profile"><div class="loading"><span class="spinner"></span>Loading...</div></div>
+        </div>
+        <div class="card">
+            <h2><span class="icon">📈</span> 30-Day Summary</h2>
+            <div id="historical-summary"><div class="loading"><span class="spinner"></span>Loading...</div></div>
+        </div>
+        <div class="card">
+            <h2><span class="icon">🔔</span> Alerts</h2>
+            <div id="alerts"><div class="loading"><span class="spinner"></span>Loading...</div></div>
+        </div>
+    </div>
+
+    <!-- Row 2: Forecast table -->
+    <div class="grid grid-wide">
+        <div class="card">
+            <h2><span class="icon">📊</span> 7-Day Irrigation Forecast</h2>
+            <div id="forecast-table" style="overflow-x:auto;"><div class="loading"><span class="spinner"></span>Loading...</div></div>
+        </div>
+    </div>
+
+    <!-- Row 3: Chart + Prediction -->
+    <div class="grid">
+        <div class="card">
+            <h2><span class="icon">📉</span> Forecast Chart</h2>
+            <div id="chart-container"><div class="loading"><span class="spinner"></span>Loading...</div></div>
+        </div>
+        <div class="card">
+            <h2><span class="icon">🤖</span> AI Yield Prediction</h2>
+            <div id="prediction"><div class="loading"><span class="spinner"></span>Loading...</div></div>
+        </div>
+    </div>
+</main>
+
+<!-- ── Tab 2: Tisza River Monitor ──────────────────────────────────── -->
+<main id="tab-river" style="display:none;">
+    <!-- Tisza Water Level Hero Card -->
+    <div class="grid grid-wide">
+        <div class="card" id="tisza-hero" style="background:linear-gradient(135deg, #0c4a6e 0%, #1e3a5f 100%); color:#fff;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+                <div>
+                    <h2 style="color:#7dd3fc; margin:0 0 0.3rem;"><span class="icon">🌊</span> Tisza River — Szeged</h2>
+                    <p style="font-size:0.78rem; color:#94a3b8; margin:0;">
+                        Lateral seepage model: river hydraulic head → Dupuit-Forchheimer groundwater flow → Homokhátság soil moisture
+                    </p>
+                </div>
+                <div id="tisza-stats" style="display:flex; gap:1.5rem; align-items:center; flex-wrap:wrap;">
+                    <div style="text-align:center;">
+                        <div style="font-size:0.65rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em;">Discharge</div>
+                        <div id="tisza-discharge" style="font-size:1.6rem; font-weight:700;">—</div>
+                        <div style="font-size:0.65rem; color:#94a3b8;">m³/s</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:0.65rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em;">Water Level</div>
+                        <div id="tisza-level" style="font-size:1.6rem; font-weight:700;">—</div>
+                        <div style="font-size:0.65rem; color:#94a3b8;">m a.s.l.</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:0.65rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em;">7-day Avg</div>
+                        <div id="tisza-avg" style="font-size:1.6rem; font-weight:700;">—</div>
+                        <div style="font-size:0.65rem; color:#94a3b8;">m³/s</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:0.65rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em;">Source</div>
+                        <div style="font-size:0.75rem; font-weight:600; color:#7dd3fc;">Copernicus<br>GloFAS</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map + Sidebar -->
+    <div class="grid grid-wide">
+        <div class="card" style="padding:0; overflow:hidden;">
+            <div style="padding:1rem 1.2rem 0.5rem;">
+                <h2><span class="icon">💧</span> Lateral Seepage — River to Farmland</h2>
+                <p style="font-size:0.78rem; color:var(--muted); margin-bottom:0.5rem;">
+                    5 bands from river bank to 20km inland. Soil moisture from ERA5-Land + groundwater seepage from Tisza hydraulic head.
+                </p>
+                <div style="display:flex; gap:4px; margin-bottom:0.3rem;">
+                    <button id="btn-overlay-moisture" onclick="switchOverlay('moisture')" style="padding:4px 12px; font-size:0.72rem; font-weight:600; border:2px solid #3b82f6; background:#3b82f6; color:#fff; border-radius:6px; cursor:pointer;">💧 Soil Moisture</button>
+                    <button id="btn-overlay-yield" onclick="switchOverlay('yield')" style="padding:4px 12px; font-size:0.72rem; font-weight:600; border:2px solid #94a3b8; background:transparent; color:#64748b; border-radius:6px; cursor:pointer;">🌾 Crop Yield</button>
+                </div>
+            </div>
+            <div style="display:flex; min-height:500px;">
+                <div id="river-map" style="flex:1; min-height:500px; z-index:1;"></div>
+                <div id="river-sidebar" style="width:300px; overflow-y:auto; max-height:500px; padding:0.8rem; background:rgba(248,250,252,0.95); border-left:1px solid var(--border);">
+                    <div id="river-segments"><div class="loading"><span class="spinner"></span>Loading...</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</main>
+
+<footer>
+    CASSINI Hackathon — Space for Water &nbsp;·&nbsp; Data: Copernicus ERA5 · ERA5-Land · GloFAS · Sentinel-1 SAR · Sentinel-2 NDVI/NDWI · Eurostat &nbsp;·&nbsp; Galileo OS-NMA
+</footer>
+
+<script>
+const API = '';
+
+function getParams() {
+    const date = document.getElementById('sim-date').value;
+    const crop = document.getElementById('crop').value;
+    const area = document.getElementById('area').value;
+    const reservoir = document.getElementById('reservoir').value;
+    const scenario = document.getElementById('scenario').value;
+    let p = `crop=${crop}&area_ha=${area}&reservoir_capacity=${reservoir}&initial_reservoir=${Math.round(reservoir/3)}&scenario=${scenario}`;
+    if (date) p += `&date=${date}`;
+    return p;
+}
+
+async function api(endpoint) {
+    const resp = await fetch(`${API}${endpoint}?${getParams()}`);
+    if (!resp.ok) throw new Error(`${resp.status}`);
+    return resp.json();
+}
+
+function stressClass(level) {
+    return `badge-${level}`;
+}
+
+function riskClass(risk) {
+    if (risk === 'high') return 'status-bad';
+    if (risk === 'moderate') return 'status-warn';
+    return 'status-good';
+}
+
+function soilColor(status) {
+    if (status === 'dry') return 'var(--red)';
+    if (status === 'low') return 'var(--yellow)';
+    return 'var(--green)';
+}
+
+// ── Render functions ────────────────────────────
+
+function renderSoilProfile(data) {
+    const el = document.getElementById('soil-profile');
+    const s1 = data.sentinel1 || {};
+    let html = '';
+    for (const [depth, info] of Object.entries(data.profile)) {
+        const pct = Math.min(100, (info.value_m3_m3 || 0) / 0.45 * 100);
+        const color = soilColor(info.status);
+        const era5Val = info.era5_value_m3_m3 != null ? info.era5_value_m3_m3.toFixed(3) : null;
+        const fusedVal = info.value_m3_m3 != null ? info.value_m3_m3.toFixed(3) : 'N/A';
+        html += `
+            <div class="soil-bar-wrap">
+                <div class="soil-bar-label">
+                    <span>${depth}</span>
+                    <span style="color:${color}">${fusedVal} m³/m³ — ${info.status.toUpperCase()}</span>
+                </div>
+                <div class="soil-bar">
+                    <div class="soil-bar-fill" style="width:${pct}%;background:${color}"></div>
+                </div>
+                ${era5Val && era5Val !== fusedVal ? `<div style="font-size:0.7rem;color:var(--muted);margin-top:2px;">ERA5: ${era5Val} m³/m³</div>` : ''}
+            </div>`;
+    }
+    if (s1.sar_surface_moisture_m3m3 != null) {
+        html += `
+            <div style="margin-top:0.8rem;padding:0.8rem;background:var(--accent-light);border-radius:10px;font-size:0.78rem;">
+                <div style="font-weight:600;color:var(--accent);margin-bottom:0.3rem;">📡 Sentinel-1 SAR Analysis</div>
+                <div style="color:var(--text-secondary);">
+                    VV: ${s1.sigma0_vv_db?.toFixed(1)} dB · VH: ${s1.sigma0_vh_db?.toFixed(1)} dB · 
+                    Surface SM: <b>${s1.sar_surface_moisture_m3m3.toFixed(3)}</b> m³/m³
+                </div>
+                <div style="color:var(--muted);font-size:0.7rem;margin-top:0.2rem;">
+                    ${s1.products_found || 0} products in CDSE catalog · ${s1.model || 'Water Cloud Model'}
+                </div>
+            </div>`;
+    }
+    el.innerHTML = html;
+}
+
+function renderHistorical(data) {
+    const el = document.getElementById('historical-summary');
+    const s = data.historical_summary;
+    const balanceClass = s.water_balance_mm < 0 ? 'status-bad' : 'status-good';
+    el.innerHTML = `
+        <div class="stat-grid">
+            <div class="stat">
+                <div class="label">Precipitation</div>
+                <div class="value">${s.total_precipitation_mm} mm</div>
+                <div class="sub">${s.days} days</div>
+            </div>
+            <div class="stat">
+                <div class="label">Evapotranspiration</div>
+                <div class="value">${s.total_evapotranspiration_mm} mm</div>
+            </div>
+            <div class="stat">
+                <div class="label">Water Balance</div>
+                <div class="value ${balanceClass}">${s.water_balance_mm > 0 ? '+' : ''}${s.water_balance_mm} mm</div>
+            </div>
+            <div class="stat">
+                <div class="label">Runoff Collected</div>
+                <div class="value">${s.runoff_collected_m3.toLocaleString()} m³</div>
+            </div>
+            <div class="stat">
+                <div class="label">Soil Moisture Start</div>
+                <div class="value">${s.soil_moisture_trend.start_mm} mm</div>
+            </div>
+            <div class="stat">
+                <div class="label">Soil Moisture End</div>
+                <div class="value">${s.soil_moisture_trend.end_mm} mm</div>
+            </div>
+        </div>`;
+}
+
+function renderAlerts(data) {
+    const el = document.getElementById('alerts');
+    if (data.alert_count === 0) {
+        el.innerHTML = '<div class="alert alert-info"><div class="alert-icon">✅</div><div class="alert-body"><h3>All Clear</h3><p>No alerts — system nominal.</p></div></div>';
+        return;
+    }
+    const icons = { critical: '⚠️', warning: '⚡', info: 'ℹ️' };
+    el.innerHTML = data.alerts.map(a => {
+        const cls = a.level === 'critical' ? 'alert-critical' : a.level === 'warning' ? 'alert-warning' : 'alert-info';
+        return `
+            <div class="alert ${cls}">
+                <div class="alert-icon">${icons[a.level] || 'ℹ️'}</div>
+                <div class="alert-body">
+                    <h3>${a.title}</h3>
+                    <p>${a.message}</p>
+                    <div class="channel">📨 ${a.channel}</div>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+function renderForecast(data) {
+    const el = document.getElementById('forecast-table');
+    const simDate = data.sim_date;
+    const rows = data.forecast.map(d => {
+        const isToday = d.date === simDate;
+        const rowClass = isToday ? 'today' : '';
+        return `
+            <tr class="${rowClass}">
+                <td>${isToday ? '→ ' : ''}${new Date(d.date).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'})}</td>
+                <td>${d.precip_mm.toFixed(1)}</td>
+                <td>${d.et0_mm.toFixed(1)}</td>
+                <td>${d.temp_min.toFixed(0)}–${d.temp_max.toFixed(0)}°C</td>
+                <td>${d.soil_moisture_mm.toFixed(0)}</td>
+                <td>${d.ndvi.toFixed(2)}</td>
+                <td><span class="badge ${stressClass(d.stress_level)}">${d.stress_level}</span></td>
+                <td>${d.reservoir_m3.toLocaleString()}</td>
+                <td><span class="badge badge-${d.drought_risk === 'high' ? 'critical' : d.drought_risk === 'moderate' ? 'moderate' : 'none'}">${d.drought_risk}</span></td>
+                <td><span class="badge badge-${d.confidence === 'high' ? 'none' : d.confidence === 'moderate' ? 'moderate' : 'critical'}">${d.confidence}</span></td>
+                <td class="action-cell">${d.action || '—'}</td>
+            </tr>`;
+    }).join('');
+
+    el.innerHTML = `
+        <table class="forecast-table">
+            <thead><tr>
+                <th>Date</th><th>🌧 Precip (mm)</th><th>☀ ET₀ (mm)</th><th>🌡 Temp</th>
+                <th>💧 Soil (mm)</th><th>🌿 NDVI</th><th>Stress</th><th>🏗 Reservoir (m³)</th>
+                <th>Drought</th><th>Confidence</th><th>Action</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+}
+
+function renderChart() {
+    const el = document.getElementById('chart-container');
+    const ts = Date.now();
+    el.innerHTML = `<img class="chart-img" src="${API}/chart?${getParams()}&_t=${ts}" alt="Forecast Chart"
+        onerror="this.parentElement.innerHTML='<div class=\\'empty\\'>Chart generation failed</div>'" />`;
+}
+
+function renderPrediction(data) {
+    const el = document.getElementById('prediction');
+    const p = data.prediction;
+    const statusClass = p.predicted_yield >= p.hist_mean_yield ? 'status-good' :
+        p.predicted_yield >= p.hist_mean_yield - p.hist_std_yield ? 'status-warn' : 'status-bad';
+
+    el.innerHTML = `
+        <div class="prediction-row">
+            <span class="prediction-label">Predicted Yield (no irrigation)</span>
+            <span class="prediction-value ${statusClass}">${p.predicted_yield.toFixed(2)} t/ha</span>
+        </div>
+        <div class="prediction-row">
+            <span class="prediction-label">Predicted Yield (with irrigation)</span>
+            <span class="prediction-value status-good">${p.irrigated_yield.toFixed(2)} t/ha</span>
+        </div>
+        <div class="prediction-row">
+            <span class="prediction-label">Yield Improvement</span>
+            <span class="prediction-value status-good">+${p.yield_improvement.toFixed(2)} t/ha (${p.yield_improvement_pct > 0 ? '+' : ''}${p.yield_improvement_pct}%)</span>
+        </div>
+        <div class="prediction-row">
+            <span class="prediction-label">Historical Average</span>
+            <span class="prediction-value">${p.hist_mean_yield.toFixed(2)} ± ${p.hist_std_yield.toFixed(2)} t/ha</span>
+        </div>
+        <div class="prediction-row">
+            <span class="prediction-label">Season Progress</span>
+            <span class="prediction-value">${(p.season_fraction * 100).toFixed(0)}%</span>
+        </div>
+        <div class="prediction-row">
+            <span class="prediction-label">Water Deficit</span>
+            <span class="prediction-value status-bad">${p.water_deficit_mm.toFixed(0)} mm</span>
+        </div>
+        <div class="prediction-row">
+            <span class="prediction-label">Heat Stress Days (&gt;35°C)</span>
+            <span class="prediction-value">${p.heat_stress_days} days</span>
+        </div>
+
+        <div style="font-size:0.7rem; color:var(--muted); margin-top:0.8rem;">
+            Model: ${p.model_info?.algorithm || 'GradientBoosting'} · ${p.n_features || '?'} features · ${p.model_info?.training_years || '?'} years
+            <br>Scenario: <b>${p.scenario || 'auto'}</b> · Analog years: ${(p.analog_years || []).join(', ') || '—'}
+            <br>Analog avg yield: ${p.analog_mean_yield?.toFixed(2) || '—'} t/ha · Real data: ${p.real_data_pct || 0}%
+            ${p.sentinel_features ? `
+            <div style="margin-top:0.5rem; padding:0.5rem; background:rgba(99,102,241,0.06); border-radius:8px; border:1px solid rgba(99,102,241,0.12);">
+                <div style="font-weight:600; color:var(--accent); font-size:0.72rem; margin-bottom:0.2rem;">🛰️ Copernicus Satellite Features</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.15rem 0.8rem;">
+                    <span>S1 VV: <b>${p.sentinel_features.s1_vv_mean} dB</b></span>
+                    <span>SM: <b>${p.sentinel_features.sm_surface_mean?.toFixed(3)}</b> m³/m³</span>
+                    <span>S2 NDVI: <b>${p.sentinel_features.s2_ndvi_peak}</b></span>
+                    <span>S2 NDWI: <b>${p.sentinel_features.s2_ndwi_mean}</b></span>
+                </div>
+                <div style="margin-top:0.2rem; font-size:0.65rem; color:var(--muted);">
+                    ${Object.entries(p.copernicus_sources || {}).filter(([k,v]) => v).map(([k]) =>
+                        k.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase())
+                    ).join(' · ')}
+                </div>
+            </div>` : ''}
+        </div>`;
+}
+
+// ── Load functions ──────────────────────────────
+
+let _loadId = 0; // debounce guard
+
+async function loadEverything() {
+    const myId = ++_loadId;
+    const status = document.getElementById('status-indicator');
+    status.textContent = '⏳ Loading...';
+
+    // Show loading states
+    ['soil-profile', 'historical-summary', 'alerts', 'forecast-table', 'chart-container', 'prediction']
+        .forEach(id => document.getElementById(id).innerHTML = '<div class="loading"><span class="spinner"></span>Loading...</div>');
+
+    const dateVal = document.getElementById('sim-date').value;
+    const isFuture = dateVal && new Date(dateVal) > new Date();
+
+    try {
+        // Phase 1: forecast + soil + alerts (may fail for future dates)
+        const results = await Promise.allSettled([
+            api('/soil-profile'),
+            api('/forecast'),
+            api('/alerts'),
+        ]);
+
+        if (myId !== _loadId) return;
+
+        const [soilRes, forecastRes, alertRes] = results;
+
+        if (soilRes.status === 'fulfilled') {
+            renderSoilProfile(soilRes.value);
+        } else {
+            document.getElementById('soil-profile').innerHTML = isFuture
+                ? '<div class="empty">🔮 Soil data unavailable for future dates — using analog projections</div>'
+                : `<div class="empty">⚠️ Soil data unavailable</div>`;
+        }
+
+        if (forecastRes.status === 'fulfilled') {
+            renderHistorical(forecastRes.value);
+            renderForecast(forecastRes.value);
+            renderChart();
+        } else {
+            document.getElementById('historical-summary').innerHTML = isFuture
+                ? '<div class="empty">🔮 Historical summary uses analog year data for future projections</div>'
+                : '<div class="empty">⚠️ Forecast data unavailable</div>';
+            document.getElementById('forecast-table').innerHTML = isFuture
+                ? '<div class="empty">🔮 Day-by-day forecast not available for future dates — see ML prediction below</div>'
+                : '<div class="empty">⚠️ Forecast unavailable</div>';
+            document.getElementById('chart-container').innerHTML = isFuture
+                ? '<div class="empty">🔮 Chart not available for future dates</div>'
+                : '<div class="empty">⚠️ Chart unavailable</div>';
+        }
+
+        if (alertRes.status === 'fulfilled') {
+            renderAlerts(alertRes.value);
+        } else {
+            document.getElementById('alerts').innerHTML = isFuture
+                ? '<div class="empty">🔮 Alerts will be generated as the date approaches</div>'
+                : '<div class="empty">⚠️ Alert data unavailable</div>';
+        }
+
+        status.textContent = '🤖 Predicting...';
+
+        // Phase 2: ML prediction (works for ALL dates via analog matching)
+        const predData = await api('/prediction');
+        if (myId !== _loadId) return;
+        renderPrediction(predData);
+
+        status.textContent = '✅ Ready';
+    } catch (e) {
+        console.error(e);
+        if (myId === _loadId) {
+            status.textContent = '❌ Error';
+            document.getElementById('prediction').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+        }
+    }
+}
+
+// Debounced reload on any input change
+let _debounceTimer = null;
+function onInputChange() {
+    clearTimeout(_debounceTimer);
+    _debounceTimer = setTimeout(() => {
+        if (document.getElementById('tab-field').style.display !== 'none') loadEverything();
+        else loadRiverData();
+    }, 400);
+}
+
+// ── Tab switching ──────────────────────────────────
+let _activeTab = 'field';
+function switchTab(tab) {
+    _activeTab = tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    document.getElementById('tab-field').style.display = tab === 'field' ? '' : 'none';
+    document.getElementById('tab-river').style.display = tab === 'river' ? '' : 'none';
+    if (tab === 'river') loadRiverData();
+}
+
+// ── River transect bands + Leaflet map ─────────────
+let _riverMap = null;
+let _riverLayers = [];
+let _riverOverlay = 'moisture'; // 'moisture' or 'yield'
+let _riverData = null; // cached for overlay switch
+
+function moistureColor(val) {
+    if (val == null) return '#94a3b8';
+    if (val < 0.10) return '#ef4444';
+    if (val < 0.18) return '#f59e0b';
+    if (val < 0.28) return '#10b981';
+    return '#06b6d4';
+}
+
+function moistureLabel(val) {
+    if (val == null) return '\u2014';
+    if (val < 0.10) return 'Very Dry';
+    if (val < 0.18) return 'Dry';
+    if (val < 0.28) return 'Adequate';
+    return 'Wet';
+}
+
+function yieldColor(score) {
+    if (score == null) return '#94a3b8';
+    if (score < 40) return '#ef4444';
+    if (score < 60) return '#f59e0b';
+    if (score < 75) return '#22c55e';
+    return '#16a34a';
+}
+
+function yieldLabel(score) {
+    if (score == null) return '\u2014';
+    if (score < 40) return 'Poor';
+    if (score < 60) return 'Moderate';
+    if (score < 75) return 'Good';
+    return 'Excellent';
+}
+
+function switchOverlay(mode) {
+    _riverOverlay = mode;
+    var btnM = document.getElementById('btn-overlay-moisture');
+    var btnY = document.getElementById('btn-overlay-yield');
+    if (mode === 'moisture') {
+        btnM.style.background = '#3b82f6'; btnM.style.color = '#fff'; btnM.style.borderColor = '#3b82f6';
+        btnY.style.background = 'transparent'; btnY.style.color = '#64748b'; btnY.style.borderColor = '#94a3b8';
+    } else {
+        btnY.style.background = '#16a34a'; btnY.style.color = '#fff'; btnY.style.borderColor = '#16a34a';
+        btnM.style.background = 'transparent'; btnM.style.color = '#64748b'; btnM.style.borderColor = '#94a3b8';
+    }
+    if (_riverData) {
+        updateRiverMap(_riverData);
+        renderRiverSegments(_riverData);
+    }
+}
+
+function initRiverMap() {
+    if (_riverMap) return;
+    _riverMap = L.map('river-map', { zoomControl: true }).setView([46.395, 20.10], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '\u00a9 OpenStreetMap \u00b7 Copernicus ERA5-Land',
+        maxZoom: 18,
+    }).addTo(_riverMap);
+}
+
+function updateRiverMap(data) {
+    if (!_riverMap) return;
+    _riverLayers.forEach(l => _riverMap.removeLayer(l));
+    _riverLayers = [];
+
+    const segments = data.segments || [];
+    const boundaries = data.band_boundaries || [];
+    const riverCourse = data.river_course || [];
+    const isYield = _riverOverlay === 'yield';
+
+    // Draw filled band polygons between adjacent boundaries
+    for (let i = 0; i < boundaries.length - 1; i++) {
+        const inner = boundaries[i].coords;
+        const outer = boundaries[i + 1].coords;
+        const polyCoords = [
+            ...inner.map(c => [c[0], c[1]]),
+            ...[...outer].reverse().map(c => [c[0], c[1]]),
+        ];
+
+        const band = segments[i] || {};
+        const sm = band.soil_moisture;
+        const ye = band.yield_estimate || {};
+        var color, popupHtml;
+
+        if (isYield) {
+            var score = ye.overall_score;
+            color = yieldColor(score);
+            popupHtml =
+                '<div style="font-family:Segoe UI,sans-serif; min-width:200px;">' +
+                '<div style="font-weight:700; font-size:0.95rem; margin-bottom:4px;">' + (band.name || 'Band ' + i) + '</div>' +
+                '<div style="font-size:0.75rem; color:#666; margin-bottom:6px;">' + band.dist_km + '\u2013' + (band.dist_km + 5) + ' km \u2022 ' + (band.soil_type || '') + '</div>' +
+                '<div style="font-size:1.3rem; font-weight:700; color:' + color + ';">' + (score != null ? score.toFixed(0) + '/100' : '?') + '</div>' +
+                '<div style="font-size:0.72rem; color:' + color + '; font-weight:600; margin-bottom:6px;">' + yieldLabel(score) + ' yield potential</div>' +
+                '<table style="width:100%; font-size:0.75rem; border-collapse:collapse;">' +
+                '<tr><td style="padding:2px 0;">\uD83C\uDF3D Maize</td><td style="font-weight:600; text-align:right;">' + (ye.maize_t_ha || '\u2014') + ' t/ha</td></tr>' +
+                '<tr><td style="padding:2px 0;">\uD83C\uDF3E Wheat</td><td style="font-weight:600; text-align:right;">' + (ye.wheat_t_ha || '\u2014') + ' t/ha</td></tr>' +
+                '<tr><td style="padding:2px 0;">\uD83C\uDF3B Sunflower</td><td style="font-weight:600; text-align:right;">' + (ye.sunflower_t_ha || '\u2014') + ' t/ha</td></tr>' +
+                '<tr><td style="padding:2px 0; color:#888;">Best crop</td><td style="font-weight:700; text-align:right; color:#16a34a;">' + (ye.best_crop || '\u2014') + '</td></tr>' +
+                '<tr><td style="padding:2px 0; color:#888;">Moisture score</td><td style="font-weight:600; text-align:right;">' + (ye.moisture_score != null ? (ye.moisture_score * 100).toFixed(0) + '%' : '\u2014') + '</td></tr>' +
+                '</table>' +
+                '<div style="font-size:0.65rem; color:#aaa; margin-top:6px;">Source: Copernicus + WoSIS soil model</div>' +
+                '</div>';
+        } else {
+            var surface = sm ? sm.surface_0_7cm : null;
+            color = moistureColor(surface);
+            var mid_val = sm ? sm.mid_7_28cm : null;
+            var deep_val = sm ? sm.deep_28_100cm : null;
+            popupHtml =
+                '<div style="font-family:Segoe UI,sans-serif; min-width:180px;">' +
+                '<div style="font-weight:700; font-size:0.95rem; margin-bottom:4px;">' + (band.name || 'Band ' + i) + '</div>' +
+                '<div style="font-size:0.75rem; color:#666; margin-bottom:6px;">' + band.dist_km + '\u2013' + (band.dist_km + 5) + ' km from river</div>' +
+                '<div style="font-size:1.3rem; font-weight:700; color:' + color + ';">' + (surface != null ? (surface * 100).toFixed(1) + '%' : '?') + '</div>' +
+                '<div style="font-size:0.72rem; color:' + color + '; font-weight:600; margin-bottom:6px;">' + moistureLabel(surface) + ' (surface)</div>' +
+                '<table style="width:100%; font-size:0.75rem; border-collapse:collapse;">' +
+                '<tr><td style="padding:2px 0; color:#888;">Surface 0\u20137cm</td><td style="font-weight:600; text-align:right;">' + (surface != null ? (surface*100).toFixed(1)+'%' : '\u2014') + '</td></tr>' +
+                '<tr><td style="padding:2px 0; color:#888;">Mid 7\u201328cm</td><td style="font-weight:600; text-align:right;">' + (mid_val != null ? (mid_val*100).toFixed(1)+'%' : '\u2014') + '</td></tr>' +
+                '<tr><td style="padding:2px 0; color:#888;">Deep 28\u2013100cm</td><td style="font-weight:600; text-align:right;">' + (deep_val != null ? (deep_val*100).toFixed(1)+'%' : '\u2014') + '</td></tr>' +
+                '</table>' +
+                '<div style="font-size:0.65rem; color:#aaa; margin-top:6px;">Source: Copernicus ERA5-Land</div>' +
+                '</div>';
+        }
+
+        var poly = L.polygon(polyCoords, {
+            fillColor: color, fillOpacity: 0.35,
+            color: color, weight: 1.5, opacity: 0.6,
+        }).addTo(_riverMap);
+        poly.bindPopup(popupHtml, { maxWidth: 260 });
+        _riverLayers.push(poly);
+    }
+
+    // Draw boundary lines with distance labels
+    boundaries.forEach(function(b) {
+        var line = L.polyline(b.coords, {
+            color: '#475569', weight: 1.5, opacity: 0.5,
+            dashArray: b.dist_km === 0 ? null : '6,4',
+        }).addTo(_riverMap);
+        _riverLayers.push(line);
+        var mid = b.coords[Math.floor(b.coords.length / 2)];
+        var label = L.marker(mid, {
+            icon: L.divIcon({
+                html: '<div style="background:rgba(71,85,105,0.85); color:#fff; font-size:0.65rem; font-weight:600; padding:1px 5px; border-radius:6px; white-space:nowrap;">' + b.dist_km + ' km</div>',
+                className: '', iconSize: [40, 16], iconAnchor: [20, 8],
+            })
+        }).addTo(_riverMap);
+        _riverLayers.push(label);
+    });
+
+    // Draw river course
+    if (riverCourse.length > 0) {
+        var river = L.polyline(riverCourse, {
+            color: '#3b82f6', weight: 6, opacity: 0.6,
+            lineCap: 'round', lineJoin: 'round',
+        }).addTo(_riverMap);
+        river.bindPopup('<b>\ud83c\udf0a Tisza River</b>');
+        _riverLayers.push(river);
+    }
+
+    // Field marker
+    var field = L.marker([46.305, 20.050], {
+        icon: L.divIcon({
+            html: '<div style="font-size:20px;">\ud83c\udf3e</div>',
+            className: '', iconSize: [24, 24], iconAnchor: [12, 12],
+        })
+    }).addTo(_riverMap).bindPopup('<b>\ud83c\udf3e Monitored Field</b><br>Szatymaz farmland');
+    _riverLayers.push(field);
+
+    // Sample point dots
+    segments.forEach(function(s) {
+        if (!s.soil_moisture) return;
+        var dotColor, dotLabel;
+        if (isYield) {
+            var ye2 = s.yield_estimate || {};
+            dotColor = yieldColor(ye2.overall_score);
+            dotLabel = s.name + ': ' + (ye2.overall_score != null ? ye2.overall_score.toFixed(0) + '/100' : '?');
+        } else {
+            var surf = s.soil_moisture.surface_0_7cm;
+            dotColor = moistureColor(surf);
+            dotLabel = s.name + ': ' + (surf != null ? (surf * 100).toFixed(1) + '%' : '?');
+        }
+        var dot = L.circleMarker([s.lat, s.lon], {
+            radius: 7, fillColor: dotColor, color: '#fff',
+            weight: 2, fillOpacity: 0.9,
+        }).addTo(_riverMap);
+        dot.bindTooltip(dotLabel, { permanent: false, direction: 'top' });
+        _riverLayers.push(dot);
+    });
+
+    // Fit bounds
+    var allLats = boundaries.flatMap(function(b) { return b.coords.map(function(c) { return c[0]; }); });
+    var allLons = boundaries.flatMap(function(b) { return b.coords.map(function(c) { return c[1]; }); });
+    _riverMap.fitBounds([
+        [Math.min.apply(null, allLats) - 0.01, Math.min.apply(null, allLons) - 0.02],
+        [Math.max.apply(null, allLats) + 0.01, Math.max.apply(null, allLons) + 0.02],
+    ]);
+}
+
+function renderTiszaStats(tisza) {
+    if (!tisza) return;
+    const dEl = document.getElementById('tisza-discharge');
+    const lEl = document.getElementById('tisza-level');
+    const aEl = document.getElementById('tisza-avg');
+    if (dEl) dEl.textContent = tisza.discharge_m3s.toFixed(0);
+    if (lEl) lEl.textContent = tisza.water_level_m.toFixed(1);
+    if (aEl) aEl.textContent = tisza.discharge_7d_avg_m3s.toFixed(0);
+}
+
+function renderRiverSegments(data) {
+    _riverData = data;
+    renderTiszaStats(data.tisza);
+    var el = document.getElementById('river-segments');
+    var segments = data.segments || [];
+    if (segments.length === 0) {
+        el.innerHTML = '<div class="empty">No band data available</div>';
+        return;
+    }
+
+    var isYield = _riverOverlay === 'yield';
+
+    el.innerHTML = segments.map(function(s, i) {
+        var sm = s.soil_moisture;
+        var sp = s.seepage || {};
+        var soil = s.soil_properties || {};
+        var ye = s.yield_estimate || {};
+        var distLabel = i === 0 ? 'River bank' : (s.dist_km) + '\u2013' + (s.dist_km + 5) + ' km';
+        var soilType = s.soil_type || '\u2014';
+        var kVal = soil.hydraulic_conductivity_m_day != null ? soil.hydraulic_conductivity_m_day : '\u2014';
+        var bdVal = soil.bulk_density_g_cm3 != null ? soil.bulk_density_g_cm3.toFixed(3) : '\u2014';
+        var porVal = soil.porosity != null ? (soil.porosity * 100).toFixed(1) + '%' : '\u2014';
+
+        var cardClick = ' onclick="_riverMap && _riverMap.setView([' + s.lat + ',' + s.lon + '],12)"';
+        var soilLine = '<div style="font-size:0.62rem; color:#a78bfa; margin:0.15rem 0;">\uD83E\uDEA8 ' + soilType +
+            ' &nbsp;\u2022&nbsp; K=' + kVal + ' m/d &nbsp;\u2022&nbsp; BD=' + bdVal + ' g/cm\u00B3</div>';
+
+        if (isYield) {
+            var score = ye.overall_score;
+            var color = yieldColor(score);
+            var pct = score != null ? Math.min(100, score) : 0;
+            var bestCrop = ye.best_crop || '\u2014';
+            var cropEmoji = bestCrop === 'maize' ? '\uD83C\uDF3D' : bestCrop === 'wheat' ? '\uD83C\uDF3E' : '\uD83C\uDF3B';
+            return '<div class="segment-card" style="margin-bottom:0.6rem; cursor:pointer; border-left:4px solid ' + color + '; padding:0.6rem;"' + cardClick + '>' +
+                '<div class="segment-header"><span class="segment-name" style="font-size:0.8rem; font-weight:700;">' + s.name + '</span>' +
+                '<span class="segment-km" style="font-size:0.7rem;">' + distLabel + '</span></div>' + soilLine +
+                '<div style="display:flex; justify-content:space-between; align-items:baseline; margin:0.3rem 0;">' +
+                '<div><div style="font-size:0.6rem; color:var(--muted);">\uD83C\uDF3D Maize</div>' +
+                '<div style="font-size:0.95rem; font-weight:700; color:' + color + ';">' + (ye.maize_t_ha || '\u2014') + ' t/ha</div></div>' +
+                '<div style="text-align:center;"><div style="font-size:0.6rem; color:var(--muted);">\uD83C\uDF3E Wheat</div>' +
+                '<div style="font-size:0.95rem; font-weight:700; color:' + color + ';">' + (ye.wheat_t_ha || '\u2014') + ' t/ha</div></div>' +
+                '<div style="text-align:right;"><div style="font-size:0.6rem; color:var(--muted);">\uD83C\uDF3B Sunflwr</div>' +
+                '<div style="font-size:0.95rem; font-weight:700; color:' + color + ';">' + (ye.sunflower_t_ha || '\u2014') + ' t/ha</div></div></div>' +
+                '<div class="moisture-bar-container"><div class="moisture-bar" style="width:' + pct + '%; background:' + color + ';"></div></div>' +
+                '<div style="display:flex; justify-content:space-between; font-size:0.62rem; color:var(--muted); margin-top:0.2rem;">' +
+                '<span>' + cropEmoji + ' Best: ' + bestCrop + '</span><span>\uD83D\uDCA7 RZ: ' + (ye.root_zone_moisture != null ? (ye.root_zone_moisture * 100).toFixed(1) + '%' : '?') + ' \u2022 Score: ' + (score != null ? score.toFixed(0) : '?') + '/100</span></div></div>';
+        } else {
+            var surface = sm ? sm.surface_0_7cm : null;
+            var mColor = moistureColor(surface);
+            var mPct = surface ? Math.min(100, surface / 0.45 * 100) : 0;
+            var wtDepth = sp.water_table_depth_m != null ? sp.water_table_depth_m.toFixed(1) + 'm' : '\u2014';
+            var wtElev = sp.water_table_elev_m != null ? sp.water_table_elev_m.toFixed(1) + 'm' : '\u2014';
+            var seepSurf = sp.surface_contribution != null ? '+' + (sp.surface_contribution * 100).toFixed(1) + '%' : '';
+            var seepDeep = sp.deep_contribution != null ? '+' + (sp.deep_contribution * 100).toFixed(1) + '%' : '';
+            var combSurf = sp.combined_surface != null ? (sp.combined_surface * 100).toFixed(1) + '%' : '\u2014';
+            return '<div class="segment-card" style="margin-bottom:0.6rem; cursor:pointer; border-left:4px solid ' + mColor + '; padding:0.6rem;"' + cardClick + '>' +
+                '<div class="segment-header"><span class="segment-name" style="font-size:0.8rem; font-weight:700;">' + s.name + '</span>' +
+                '<span class="segment-km" style="font-size:0.7rem;">' + distLabel + '</span></div>' + soilLine +
+                '<div style="display:flex; justify-content:space-between; align-items:baseline; margin:0.3rem 0;">' +
+                '<div><div style="font-size:0.6rem; color:var(--muted); text-transform:uppercase;">ERA5-Land</div>' +
+                '<div class="moisture-value" style="color:' + mColor + '; font-size:0.95rem;">' + (surface != null ? (surface * 100).toFixed(1) + '%' : '\u2014') + '</div></div>' +
+                '<div style="text-align:center;"><div style="font-size:0.6rem; color:var(--muted); text-transform:uppercase;">Seepage</div>' +
+                '<div style="font-size:0.95rem; font-weight:600; color:#3b82f6;">' + seepSurf + '</div></div>' +
+                '<div style="text-align:right;"><div style="font-size:0.6rem; color:var(--muted); text-transform:uppercase;">Combined</div>' +
+                '<div style="font-size:0.95rem; font-weight:700; color:#059669;">' + combSurf + '</div></div></div>' +
+                '<div class="moisture-bar-container"><div class="moisture-bar" style="width:' + mPct + '%; background:' + mColor + ';"></div></div>' +
+                '<div style="display:flex; justify-content:space-between; font-size:0.62rem; color:var(--muted); margin-top:0.2rem;">' +
+                '<span>\ud83d\udca7 WT: ' + wtDepth + ' deep (' + wtElev + ' a.s.l.)</span><span>Deep seepage: ' + seepDeep + '</span></div></div>';
+        }
+    }).join('');
+
+    initRiverMap();
+    updateRiverMap(data);
+    setTimeout(function() { _riverMap.invalidateSize(); }, 100);
+    renderRiverChart(segments, data.tisza);
+}
+
+function renderRiverChart(segments, tisza) {
+    const el = document.getElementById('river-chart');
+    if (!el) return;
+    const valid = segments.filter(s => s.soil_moisture);
+    if (valid.length === 0) { el.innerHTML = '<div class="empty">No data for chart</div>'; return; }
+
+    const W = 800, H = 300, pad = { t: 25, r: 60, b: 45, l: 55 };
+    const plotW = W - pad.l - pad.r;
+    const plotH = H - pad.t - pad.b;
+    const maxDist = Math.max(...valid.map(s => s.dist_km + 5), 25);
+
+    // Two y-axes: left = soil moisture %, right = water table depth
+    const maxMoist = 0.45;
+    const maxWTDepth = 6; // meters
+
+    let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="river-svg-chart" xmlns="http://www.w3.org/2000/svg">';
+
+    // Background grid
+    for (let v = 0; v <= 0.4; v += 0.1) {
+        const y = pad.t + plotH - (v / maxMoist) * plotH;
+        svg += '<line x1="' + pad.l + '" y1="' + y + '" x2="' + (W-pad.r) + '" y2="' + y + '" stroke="#e2e8f0" stroke-width="0.5"/>';
+        svg += '<text x="' + (pad.l-8) + '" y="' + (y+4) + '" text-anchor="end" fill="#718096" font-size="9">' + (v*100).toFixed(0) + '%</text>';
+    }
+    // Right axis: water table depth
+    for (let d = 0; d <= maxWTDepth; d += 1) {
+        const y = pad.t + (d / maxWTDepth) * plotH;
+        svg += '<text x="' + (W-pad.r+8) + '" y="' + (y+4) + '" text-anchor="start" fill="#6366f1" font-size="9">' + d + 'm</text>';
+    }
+    svg += '<text x="' + (W-pad.r+8) + '" y="' + (pad.t - 8) + '" text-anchor="start" fill="#6366f1" font-size="8">WT depth</text>';
+
+    // X-axis labels
+    valid.forEach(s => {
+        const x = pad.l + ((s.dist_km + 2.5) / maxDist) * plotW;
+        svg += '<text x="' + x + '" y="' + (H-5) + '" text-anchor="middle" fill="#718096" font-size="8">' + s.name + '</text>';
+        svg += '<text x="' + x + '" y="' + (H-15) + '" text-anchor="middle" fill="#94a3b8" font-size="7">' + s.dist_km + '\u2013' + (s.dist_km+5) + 'km</text>';
+    });
+
+    // ERA5-Land moisture lines
+    var layers = [
+        { key: 'surface_0_7cm', label: 'Surface (ERA5)', color: '#06b6d4' },
+        { key: 'deep_28_100cm', label: 'Deep (ERA5)', color: '#6366f1' },
+    ];
+    layers.forEach(function(layer) {
+        var points = valid.map(function(s) {
+            var val = s.soil_moisture[layer.key] || 0;
+            var x = pad.l + ((s.dist_km + 2.5) / maxDist) * plotW;
+            var y = pad.t + plotH - (val / maxMoist) * plotH;
+            return { x: x, y: y };
+        });
+        var pathD = points.map(function(p, i) { return (i === 0 ? 'M' : 'L') + p.x + ',' + p.y; }).join(' ');
+        svg += '<path d="' + pathD + '" fill="none" stroke="' + layer.color + '" stroke-width="2" stroke-linecap="round" stroke-dasharray="6,3" opacity="0.6"/>';
+        points.forEach(function(p) {
+            svg += '<circle cx="' + p.x + '" cy="' + p.y + '" r="3" fill="' + layer.color + '" stroke="#fff" stroke-width="1"/>';
+        });
+    });
+
+    // Combined moisture (with seepage) — bold lines
+    var combLayers = [
+        { key: 'combined_surface', label: 'Surface + Seepage', color: '#059669' },
+        { key: 'combined_deep', label: 'Deep + Seepage', color: '#7c3aed' },
+    ];
+    combLayers.forEach(function(layer) {
+        var points = valid.filter(function(s) { return s.seepage; }).map(function(s) {
+            var val = s.seepage[layer.key] || 0;
+            var x = pad.l + ((s.dist_km + 2.5) / maxDist) * plotW;
+            var y = pad.t + plotH - (val / maxMoist) * plotH;
+            return { x: x, y: y };
+        });
+        if (points.length > 0) {
+            var pathD = points.map(function(p, i) { return (i === 0 ? 'M' : 'L') + p.x + ',' + p.y; }).join(' ');
+            svg += '<path d="' + pathD + '" fill="none" stroke="' + layer.color + '" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>';
+            points.forEach(function(p) {
+                svg += '<circle cx="' + p.x + '" cy="' + p.y + '" r="4" fill="' + layer.color + '" stroke="#fff" stroke-width="1.5"/>';
+            });
+        }
+    });
+
+    // Water table depth line (right axis)
+    var wtPoints = valid.filter(function(s) { return s.seepage && s.seepage.water_table_depth_m != null; }).map(function(s) {
+        var x = pad.l + ((s.dist_km + 2.5) / maxDist) * plotW;
+        var y = pad.t + (s.seepage.water_table_depth_m / maxWTDepth) * plotH;
+        return { x: x, y: y, d: s.seepage.water_table_depth_m };
+    });
+    if (wtPoints.length > 0) {
+        var pathD = wtPoints.map(function(p, i) { return (i === 0 ? 'M' : 'L') + p.x + ',' + p.y; }).join(' ');
+        // Filled area under WT line
+        svg += '<path d="' + pathD + ' L' + wtPoints[wtPoints.length-1].x + ',' + pad.t + ' L' + wtPoints[0].x + ',' + pad.t + ' Z" fill="#818cf8" opacity="0.08"/>';
+        svg += '<path d="' + pathD + '" fill="none" stroke="#818cf8" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4,2" opacity="0.7"/>';
+        wtPoints.forEach(function(p) {
+            svg += '<circle cx="' + p.x + '" cy="' + p.y + '" r="4" fill="#818cf8" stroke="#fff" stroke-width="1.5"/>';
+            svg += '<text x="' + p.x + '" y="' + (p.y - 8) + '" text-anchor="middle" fill="#818cf8" font-size="8" font-weight="600">' + p.d.toFixed(1) + 'm</text>';
+        });
+    }
+
+    // Labels
+    svg += '<text x="' + pad.l + '" y="' + (H-28) + '" fill="#3b82f6" font-size="9" font-weight="600">\u2190 Tisza River</text>';
+    svg += '<text x="' + (W-pad.r) + '" y="' + (H-28) + '" text-anchor="end" fill="#94a3b8" font-size="9">Homokh\u00e1ts\u00e1g \u2192</text>';
+
+    // Legend
+    var legendItems = [
+        { label: 'ERA5 Surface', color: '#06b6d4', dash: true },
+        { label: '+ Seepage', color: '#059669', dash: false },
+        { label: 'Water Table', color: '#818cf8', dash: true },
+    ];
+    legendItems.forEach(function(item, i) {
+        var lx = pad.l + i * 140;
+        svg += '<rect x="' + lx + '" y="4" width="12" height="12" rx="3" fill="' + item.color + '" opacity="' + (item.dash ? '0.5' : '1') + '"/>';
+        svg += '<text x="' + (lx+16) + '" y="14" fill="#4a5568" font-size="9">' + item.label + '</text>';
+    });
+    svg += '</svg>';
+    el.innerHTML = svg;
+}
+
+async function loadRiverData() {
+    const el = document.getElementById('river-segments');
+    el.innerHTML = '<div class="loading"><span class="spinner"></span>Loading river band data...</div>';
+    const chartEl = document.getElementById('river-chart');
+    if (chartEl) chartEl.innerHTML = '<div class="loading"><span class="spinner"></span></div>';
+    try {
+        const dateVal = document.getElementById('sim-date').value;
+        const params = dateVal ? '?date=' + dateVal : '';
+        const resp = await fetch(API + '/river-segments' + params);
+        if (!resp.ok) throw new Error(resp.status);
+        const data = await resp.json();
+        renderRiverSegments(data);
+    } catch (e) {
+        el.innerHTML = '<div class="empty">Error loading river data: ' + e.message + '</div>';
+    }
+}
+
+// Auto-load on page load + bind change listeners
+window.addEventListener('DOMContentLoaded', () => {
+    // Set max date to one week from today
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() + 7);
+    document.getElementById('sim-date').max = maxDate.toISOString().split('T')[0];
+
+    ['sim-date', 'crop', 'area', 'reservoir', 'scenario'].forEach(id => {
+        document.getElementById(id).addEventListener('change', onInputChange);
+    });
+    loadEverything();
+});
+</script>
+</body>
+</html>

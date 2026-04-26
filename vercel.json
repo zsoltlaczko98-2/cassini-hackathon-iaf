@@ -1,0 +1,28 @@
+{
+  "builds": [
+    {
+      "src": "server.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "static/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    { "src": "/static/(.*)", "dest": "/static/$1" },
+    { "src": "/dashboard", "dest": "/server.py" },
+    { "src": "/forecast", "dest": "/server.py" },
+    { "src": "/soil-profile", "dest": "/server.py" },
+    { "src": "/sentinel1", "dest": "/server.py" },
+    { "src": "/sentinel2", "dest": "/server.py" },
+    { "src": "/water-balance", "dest": "/server.py" },
+    { "src": "/chart", "dest": "/server.py" },
+    { "src": "/yield-prediction", "dest": "/server.py" },
+    { "src": "/river-segments", "dest": "/server.py" },
+    { "src": "/alerts", "dest": "/server.py" },
+    { "src": "/docs(.*)", "dest": "/server.py" },
+    { "src": "/openapi.json", "dest": "/server.py" },
+    { "src": "/(.*)", "dest": "/server.py" }
+  ]
+}
