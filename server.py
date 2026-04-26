@@ -54,6 +54,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+
 # ── ML Model Cache (loaded from pretrained files or trained at startup) ──────
 
 _model_cache: dict = {}  # keyed by crop name → {model, scaler, feature_cols, training_df, trained_at}
@@ -175,8 +177,14 @@ def alert_to_dict(a) -> dict:
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
-@app.get("/", tags=["Info"])
+@app.get("/", tags=["Frontend"], include_in_schema=False)
 def root():
+    """Serve the web dashboard at root URL."""
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/api", tags=["Info"])
+def api_info():
     """API overview and available endpoints."""
     return {
         "name": "Impetus Aquae Fontis API",
@@ -1078,14 +1086,11 @@ def _compute_band_boundaries():
         })
     return boundaries
 
-
 # ── Static files & frontend ──────────────────────────────────────────────────
-
-STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 @app.get("/dashboard", tags=["Frontend"], include_in_schema=False)
 def dashboard():
-    """Serve the web dashboard."""
+    """Serve the web dashboard (alias for /)."""
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
