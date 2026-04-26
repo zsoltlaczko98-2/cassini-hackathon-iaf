@@ -216,3 +216,20 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+
+# Generated at runtime
+forecast_chart.png
+
+# Local data files (not needed to run)
+choices.txt
+backup/
+
+# WoSIS soil data (large CSVs, program has hardcoded fallbacks)
+wosis_soil_data/
+
+# GPX source file (coordinates hardcoded in server.py)
+waypoints.gpx
